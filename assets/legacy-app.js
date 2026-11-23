@@ -5,7 +5,7 @@
    Fase 0: correcciones E1–E10 de la auditoría; sin funcionalidades nuevas. */
 const $=id=>document.getElementById(id),MAX=20*1024*1024;
 const IC={files:"📂",dash:"📊",an:"🔬",prob:"🧪",alg:"⚛",be:"🔌",eco:"🌐",ex:"📤",set:"⚙"};
-const S=[["files","Select File to Analyze"],["dash","Dashboard"],["an","Data Analyzer"],["prob","Scientific Problem Workspace"],["alg","Quantum Algorithm Registry"],["be","Backend & Integration"],["eco","Ecosistema Quolab"],["ex","Export Center"],["set","Settings"]];
+const S=[["files","Select File to Analyze"]];
 const KIND={csv:"tabular",tsv:"tabular",jsonl:"tabular",json:"estructurado",xml:"estructurado",yaml:"estructurado",yml:"estructurado"};
 const ALGS=[
 {id:"vqe",acronym:"VQE",name:"Variational Quantum Eigensolver",category:"Algoritmos variacionales e ingeniería cuántica",description:"Método híbrido cuántico-clásico que minimiza el valor esperado de un Hamiltoniano sobre un circuito parametrizado.",problems:["Energía del estado fundamental","Estimación de energías propias"],input:"Hamiltoniano y configuración del circuito variacional",output:"Estimación de energía y parámetros óptimos",req:"Ansatz, medición de valores esperados y optimizador clásico",deps:"Por definir",status:"Registrado"},
