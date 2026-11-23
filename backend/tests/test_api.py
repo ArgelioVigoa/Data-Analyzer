@@ -10,7 +10,8 @@ def test_health_and_algorithm_registry():
     assert response.json()["execution_available"] is False
 
 def test_csv_upload_returns_inspection_and_limits():
-    response=client.post("/api/v1/files/analyze",files={"file":("measurements.csv",b"energy,counts\\n1.0,10\\n2.0,12\\n3.0,9\\n","text/csv")})
+    csv_bytes=b"energy,counts"+bytes([10])+b"1.0,10"+bytes([10])+b"2.0,12"+bytes([10])+b"3.0,9"+bytes([10])
+    response=client.post("/api/v1/files/analyze",files={"file":("measurements.csv",csv_bytes,"text/csv")})
     assert response.status_code==200
     body=response.json()
     assert body["analysis"]["shape"]=={"rows":3,"columns":2}
