@@ -172,10 +172,10 @@ function profile(T){const info=colInfo(T),seen=new Set();let dup=0;T.rows.forEac
  info.forEach(c=>{o.dtypes[c.name]=c.numeric?"numérico":"texto";if(c.miss)o.missing[c.name]=c.miss;if(c.numeric&&c.bad)o.non_numeric[c.name]=c.bad;if(c.numeric&&c.vals.length){const d=desc(c.vals),q=outl(d,c.vals);if(q.iqr.length)o.potential_outliers_iqr[c.name]=q.iqr.length;o.stats[c.name]={count:d.n,mean:d.mean,std_sample:d.sdS,min:d.min,Q1:d.Q1,median:d.median,Q3:d.Q3,max:d.max}}});return o}
 addEventListener("error",e=>{log("error JS",false,String(e.message))});addEventListener("unhandledrejection",e=>{log("promesa rechazada",false,String(e.reason))});
 function loadEco(){}
-function openMenu(o){$("drawer").classList.toggle("open",o);$("scrim").classList.toggle("open",o);$("burger").setAttribute("aria-expanded",o);$("burger").setAttribute("aria-label",o?"Cerrar menú":"Abrir menú")}
-function closeMenu(){openMenu(false)}
+function openMenu(o){}
+function closeMenu(){}
 function go(id){closeMenu();go0(id);scrollTo(0,0)}
-$("burger").onclick=()=>openMenu(!$("drawer").classList.contains("open"));$("scrim").onclick=closeMenu;
+
 addEventListener("keydown",e=>{if(e.key=="Escape")closeMenu()});
 $("enter").onclick=()=>{$("welcome").classList.add("out");log("entrar",true,"espacio de trabajo")};
 document.querySelector(".hero").addEventListener("pointermove",e=>{const r=e.currentTarget.getBoundingClientRect(),h=e.currentTarget;h.style.setProperty("--mx",((e.clientX-r.left)/r.width-.5)*2);h.style.setProperty("--my",((e.clientY-r.top)/r.height-.5)*2)});
