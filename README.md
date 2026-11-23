@@ -1,23 +1,29 @@
 # Data Analyzer
 
-Modularization branch preserving the existing browser prototype while introducing independently testable scientific modules.
+Data Analyzer is a scientific-data workspace designed to connect experimental data inspection, classical analysis, scientific problem formulation, literature discovery and (in later stages) quantum-computing workflows.
 
-## Run
-Serve this directory with a static HTTP server and open `index.html`. Run core tests with Node.js 18+: `npm test`; syntax checks: `npm run check`.
+## Frontend
+The current public GitHub Pages application is a static frontend. Serve the repository with a static HTTP server for local development. Run frontend checks with `npm test` and `npm run check`.
 
-## Layout
-- `index.html`: document shell.
-- `assets/app.css`: visual styles.
-- `assets/legacy-app.js`: original UI logic retained as a compatibility layer during migration.
-- `src/core`: transient state management.
-- `src/io`: input-format parsers.
-- `src/analysis`: pure statistical functions.
-- `src/quantum`: algorithm capability metadata.
-- `src/services`: future backend HTTP adapter.
-- `tests`: core module tests.
+## Python backend
+A FastAPI backend is provided in `backend/`. See [backend/README.md](backend/README.md) for setup, endpoints, API behavior and limitations. The API includes file analysis, scientific-problem records, quantum algorithm metadata and heuristic candidate matching, literature metadata search (OpenAlex/Crossref/arXiv), comparison records and PDF report export.
 
-## Honest capability boundaries
-VQE, QAOA, QAE and Grover are currently catalogue entries, not executable algorithms. The backend client is an integration boundary; it does not mean a Python/Qiskit service is deployed. Imported data remains temporary in browser memory unless a persistence adapter is deliberately added.
+### Local backend run
+```bash
+cd backend
+python -m venv .venv
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+```
+Interactive API documentation: `http://localhost:8000/docs`.
 
-## Migration
-The original script is preserved intact to avoid losing features. Migrate one responsibility at a time into tested modules; remove the compatibility layer only after the old responsibilities have been replaced.
+## Important capability boundaries
+- GitHub Pages hosts only the frontend. The Python API must be deployed separately.
+- This backend is code-ready for local execution and a free-tier deployment blueprint is included, but it is not yet a live hosted API.
+- Uploaded files are processed in memory and discarded after analysis.
+- Scientific problem and comparison records currently live in process memory and disappear when the server restarts. Durable database storage and authentication are production-hardening tasks.
+- Quantum algorithms are catalogued and preliminarily matched by transparent keyword heuristics. No Qiskit execution or quantum advantage is claimed.
+- No AI model is integrated yet.
+
+## Development branch
+Current work is being developed on `architecture/modular-refactor`; `main` is kept separate.
