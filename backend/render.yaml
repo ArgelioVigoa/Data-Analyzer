@@ -10,5 +10,17 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
+      - key: ENVIRONMENT
+        value: production
       - key: FRONTEND_ORIGINS
         value: https://argeliovigoa.github.io
+      - key: ALLOWED_HOSTS
+        value: "*.onrender.com"
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: MAX_UPLOAD_MB
+        value: 25
+      - key: RATE_LIMIT
+        value: 30/minute
