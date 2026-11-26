@@ -22,6 +22,7 @@ from .services.analysis import analyze_frame
 from .services.quantum import REGISTRY, recommend
 from .services.research import search_literature
 from .services.reports import build_pdf_report
+from .routers.ai import router as ai_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -31,6 +32,7 @@ async def lifespan(app: FastAPI):
 limiter=Limiter(key_func=get_remote_address,default_limits=[settings.rate_limit])
 app=FastAPI(title=settings.app_name,version="0.2.0",description="Scientific data API with persistent storage and per-account isolation. Quantum execution is not included.",lifespan=lifespan)
 app.state.limiter=limiter
+app.include_router(ai_router)
 app.add_exception_handler(RateLimitExceeded,_rate_limit_exceeded_handler)
 app.add_middleware(CORSMiddleware,allow_origins=settings.cors_origins,allow_credentials=False,allow_methods=["GET","POST","OPTIONS"],allow_headers=["Authorization","Content-Type"])
 app.add_middleware(TrustedHostMiddleware,allowed_hosts=settings.host_names)

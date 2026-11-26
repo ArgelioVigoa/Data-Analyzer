@@ -49,6 +49,16 @@ export class BackendClient{
  searchLiterature(query,{sources,limit=10,signal}={}){
   return this.request("/api/v1/research/search",{method:"POST",body:{query,sources,limit},signal});
  }
+ createConversation(body,{signal}={}){return this.request("/api/v1/ai/conversations",{method:"POST",body,signal})}
+ listConversations({signal}={}){return this.request("/api/v1/ai/conversations",{signal})}
+ getConversation(id,{signal}={}){return this.request(`/api/v1/ai/conversations/${encodeURIComponent(id)}`,{signal})}
+ addConversationMessage(id,message,{signal}={}){return this.request(`/api/v1/ai/conversations/${encodeURIComponent(id)}/messages`,{method:"POST",body:message,signal})}
+ closeConversation(id,{signal}={}){return this.request(`/api/v1/ai/conversations/${encodeURIComponent(id)}/close`,{method:"POST",signal})}
+ reopenConversation(id,{signal}={}){return this.request(`/api/v1/ai/conversations/${encodeURIComponent(id)}/reopen`,{method:"POST",signal})}
+ deleteConversation(id,{signal}={}){return this.request(`/api/v1/ai/conversations/${encodeURIComponent(id)}`,{method:"DELETE",signal})}
+ saveAnalysisRecord(record,{signal}={}){return this.request("/api/v1/analysis-records",{method:"POST",body:record,signal})}
+ listAnalysisRecords({signal}={}){return this.request("/api/v1/analysis-records",{signal})}
+ aiProviders({signal}={}){return this.request("/api/v1/ai/providers",{signal,auth:false})}
  exportPdf(report,{signal}={}){
   return this.request("/api/v1/reports/pdf",{method:"POST",body:report,signal,responseType:"blob"});
  }
