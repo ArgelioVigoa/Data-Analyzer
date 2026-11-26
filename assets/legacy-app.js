@@ -4,8 +4,8 @@
    upload/loadFiles/dl/dlStats: gestión de archivos y exportación · loadProb/saveProb: problemas · ALGS: catálogo (informativo)
    Fase 0: correcciones E1–E10 de la auditoría; sin funcionalidades nuevas. */
 const $=id=>document.getElementById(id),MAX=20*1024*1024;
-const IC={files:"📂",dash:"📊",an:"🔬",prob:"🧪",alg:"⚛",be:"🔌",eco:"🌐",ex:"📤",set:"⚙"};
-const S=[["files","Select File to Analyze"]];
+const IC={analysis:"🧭",files:"📂",dash:"📊",an:"🔬",prob:"🧪",alg:"⚛",be:"🔌",eco:"🌐",ex:"📤",set:"⚙"};
+const S=[["analysis","Seleccionar archivo para analizar"],["files","File Explorer"]];
 const KIND={csv:"tabular",tsv:"tabular",jsonl:"tabular",json:"estructurado",xml:"estructurado",yaml:"estructurado",yml:"estructurado"};
 const ALGS=[
 {id:"vqe",acronym:"VQE",name:"Variational Quantum Eigensolver",category:"Algoritmos variacionales e ingeniería cuántica",description:"Método híbrido cuántico-clásico que minimiza el valor esperado de un Hamiltoniano sobre un circuito parametrizado.",problems:["Energía del estado fundamental","Estimación de energías propias"],input:"Hamiltoniano y configuración del circuito variacional",output:"Estimación de energía y parámetros óptimos",req:"Ansatz, medición de valores esperados y optimizador clásico",deps:"Por definir",status:"Registrado"},
@@ -19,7 +19,7 @@ function log(op,ok,d=""){hist.unshift({ts:Date.now(),op,ok,d});if(hist.length>20
 function loadP(){const v=Store.get("problems",null);if(v)return v;try{const l=JSON.parse(localStorage.getItem("quolab_problems")||"null");if(l)return l}catch{}return mem}
 function saveP(l){mem=l;if(!Store.set("problems",l))toast("Sin almacenamiento persistente: se guarda solo en memoria",false)}
 S.forEach(([id,n])=>{const a=document.createElement("a");a.innerHTML='<span class="ic">'+IC[id]+'</span>'+n;a.id="n"+id;a.onclick=()=>go(id);document.querySelector("nav").append(a)});
-function go0(id){document.querySelectorAll("section").forEach(s=>s.classList.toggle("on",s.id==id));S.forEach(([i])=>$("n"+i).classList.toggle("on",i==id));({dash,files:loadFiles,prob:loadProb,alg:loadAlg,be:loadBe,eco:loadEco,set:loadSet}[id]||(()=>{}))()}
+function go0(id){document.querySelectorAll("section").forEach(s=>s.classList.toggle("on",s.id==id));S.forEach(([i])=>$("n"+i).classList.toggle("on",i==id));({analysis:()=>globalThis.DataAnalyzerUI&&DataAnalyzerUI.show(),dash,files:loadFiles,prob:loadProb,alg:loadAlg,be:loadBe,eco:loadEco,set:loadSet}[id]||(()=>{}))()}
 function dash(){const p=loadP();$("dashc").innerHTML=`<p>Archivos: <b>${files.length}</b> · Problemas: <b>${p.length}</b> · Algoritmos en catálogo: <b>${ALGS.length}</b> (ejecutables: <b>0</b>)</p><p>Backend: mock-integration-test (mock, no ejecuta)</p><p>Disponible: estadística, correlaciones, regresión y gráficos. Sin implementar: formulación matemática, compatibilidad cuántica, ejecución e integración con Quolab.</p><h4>Operaciones recientes</h4>`+(hist.length?"<table>"+hist.slice(0,8).map(h=>`<tr><td>${new Date(h.ts).toLocaleTimeString()}<td>${esc(h.op)}<td style="color:var(${h.ok?"--ok":"--er"})">${h.ok?"completada":"fallida"}<td>${esc(h.d)}</tr>`).join("")+"</table>":"<span class=mu>Sin operaciones.</span>")}
 async function upload(){const f=$("up").files[0];if(!f)return toast("Elige un archivo",false);const ext=(f.name.split(".").pop()||"").toLowerCase();
 if(f.size>MAX||!f.size){log("cargar",false,f.name);return toast(f.size?"Archivo demasiado grande (máx. 20 MB)":"Archivo vacío",false)}

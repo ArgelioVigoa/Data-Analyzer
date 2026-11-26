@@ -90,3 +90,27 @@ main{margin-left:220px!important;max-width:none!important;padding:84px 28px 48px
   .brand{font-size:11px}
   .module-jump{min-width:112px;max-width:122px}
 }
+
+/* ===== Seleccionar archivo para analizar: modos, catálogo, fuentes y resultados (usa las variables de la paleta existente) ===== */
+.nr-modes{display:grid;gap:16px;margin:14px 0}@media(min-width:760px){.nr-modes{grid-template-columns:1fr 1fr}}
+.mode-card{text-align:left;display:block;padding:22px;min-height:210px;border-radius:14px;color:var(--tx);background:var(--pn);border:1px solid var(--bd);box-shadow:0 8px 32px rgba(0,0,0,.35);transition:transform .2s,border-color .2s}
+.mode-card:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,0,0,.35)}.mode-card h3{margin:8px 0;font-size:20px;color:#fff}.mode-card p{color:var(--mu);margin:0 0 12px;font-weight:400}.mc-ic{font-size:30px}
+.mode-card.manual{border-color:rgba(0,229,255,.45);background:linear-gradient(160deg,rgba(0,229,255,.1),transparent 70%)}.mode-card.ai{border-color:rgba(123,97,255,.55);background:linear-gradient(160deg,rgba(123,97,255,.14),transparent 70%)}
+.nr-back{margin-bottom:10px}.nr-catalog{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;margin:8px 0 16px}
+.chart-card{display:flex;flex-direction:column;gap:6px;text-align:left;padding:12px;border-radius:10px;background:rgba(0,229,255,.06);color:var(--tx);border:1px solid rgba(0,229,255,.3);font-weight:500}
+.chart-card.sel{border-color:var(--ac);box-shadow:0 0 14px rgba(0,229,255,.3)}.chart-card.locked{opacity:.55;cursor:not-allowed;background:rgba(255,255,255,.03);border:1px dashed var(--bd)}.chart-card.locked:hover{box-shadow:none}
+.cc-n{font:12px var(--fm);color:var(--ac)}.cc-t{font-size:14px;line-height:1.35}
+.nr-src{border:1px solid var(--bd);border-radius:10px;padding:12px;margin:8px 0;background:rgba(255,255,255,.02)}.nr-src h4{margin:0 0 6px;font-family:var(--fh)}
+.nr-model{color:#ffd27a;font-weight:600;margin:4px 0}.g3{display:grid;gap:8px}@media(min-width:760px){.g3{grid-template-columns:repeat(3,1fr)}}
+.nr-err{color:var(--er)}.nr-err:empty{display:none}.nr-btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}.nr-btns select{width:auto;max-width:320px}
+.nr-table{font-size:13px}.nr-table td,.nr-table th{white-space:normal}.nr-edit input{width:100%;padding:3px 8px;font-family:var(--fm)}.nr-edit input.bad{border-color:var(--er);background:rgba(255,138,122,.12)}.nr-edit td{padding:2px 6px}
+.nr-ctl{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:10px 0}.nr-ctl select,.nr-bins{width:auto}.nr-bins{width:90px}.nr-inline{display:inline-flex;gap:6px;align-items:center;margin:0}
+.nr-switch{display:inline-flex;gap:8px;align-items:center;margin:0;cursor:pointer;color:var(--tx)}.nr-switch input{position:absolute;opacity:0;width:0;height:0}
+.nr-slider{width:40px;height:22px;border-radius:12px;background:rgba(255,255,255,.18);position:relative;transition:.2s}.nr-slider:before{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:.2s}
+.nr-switch input:checked+.nr-slider{background:var(--ac)}.nr-switch input:checked+.nr-slider:before{left:21px;background:#001018}.nr-switch input:focus-visible+.nr-slider{outline:2px solid var(--ac);outline-offset:2px}
+.nr-plot{min-height:460px;width:100%}.nr-panel{margin-top:14px;border-top:1px solid var(--bd);padding-top:8px}.nr-src-demo-simulation{color:#ffd27a;border-color:rgba(255,210,122,.5);background:rgba(255,210,122,.1)}
+.nr-banner{border:1px solid rgba(123,97,255,.6);background:rgba(123,97,255,.12);border-radius:10px;padding:10px 14px;margin:8px 0}
+.nr-chat{border:1px solid var(--bd);border-radius:10px;padding:12px;background:rgba(255,255,255,.02)}.nr-mockline{color:#ffd27a;font-weight:600;margin:0 0 8px}
+.nr-log{max-height:300px;overflow:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:8px}.nr-msg{border-radius:10px;padding:8px 12px;max-width:85%;white-space:pre-wrap}.nr-msg small{display:block;color:var(--mu);font:11px var(--fm)}
+.nr-msg.user{align-self:flex-end;background:rgba(0,229,255,.12);border:1px solid rgba(0,229,255,.3)}.nr-msg.assistant{align-self:flex-start;background:rgba(255,210,122,.08);border:1px dashed rgba(255,210,122,.5)}
+.nr-ctx pre{max-height:240px}
