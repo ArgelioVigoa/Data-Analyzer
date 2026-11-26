@@ -1,0 +1,10 @@
+export { AIProvider, assertProvider } from "./provider-interface.js";
+export { MockProvider, MOCK_BANNER } from "./providers/mock-provider.js";
+export { AISettings, DEFAULT_SETTINGS } from "./ai-settings.js";
+export { ProviderManager } from "./provider-manager.js";
+export { PromptManager } from "./prompt-manager.js";
+export { buildContext } from "./context-builder.js";
+export { processResponse } from "./response-processor.js";
+export { ConversationManager, MemoryConversationStore } from "./conversation-manager.js";
+export { AICore } from "./ai-core.js";
+export { BackendConversationStore } from "./backend-conversation-store.js";
