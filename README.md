@@ -18,3 +18,10 @@ The backend code and deployment blueprint are committed on `architecture/modular
 - Quantum algorithm entries are candidates only; Qiskit execution is not implemented.
 - AI is not integrated yet.
 - Free hosting/database plans have sleep, inactivity, capacity and backup limitations. Keep independent backups of important research data.
+
+## Análisis de energía depositada por neutrones y asistente de IA (preparación)
+
+La entrada **Seleccionar archivo para analizar** ofrece dos flujos: *Analizar Manualmente* (catálogo de 6 gráficos; solo el 6, «Energía depositada por neutrones», está operativo) y *Analizar con asistencia de IA* (estructura del futuro agente; **sin proveedor de IA conectado**, solo un Mock de pruebas). Ambos usan el mismo motor de gráficos y estadística. Ver [`docs/ANALYSIS_ARCHITECTURE.md`](docs/ANALYSIS_ARCHITECTURE.md) para la arquitectura, los formatos GEANT4 admitidos, el modelo físico de la simulación demostrativa (que **no es GEANT4**), los indicadores estadísticos y cómo conectar un proveedor más adelante.
+
+Pruebas: `npm test` · `cd backend && pytest -q` · `npm run check`.
+
