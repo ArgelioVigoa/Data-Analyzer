@@ -126,3 +126,11 @@ main{margin-left:220px!important;max-width:none!important;padding:84px 28px 48px
 .nr-workspace-source{min-width:0}
 .nr-workspace .nr-panel{margin-top:18px}
 @media(max-width:560px){.back-analyzer{font-size:10px;padding:6px 8px}.bar{gap:7px}.nr-workspace-heading{padding:12px}}
+
+/* Controles de historial interno tipo navegador. */
+.nav-history{flex:0 0 auto;padding:7px 11px;border:1px solid rgba(0,229,255,.32);border-radius:8px;background:rgba(0,229,255,.07);color:var(--tx);font-size:12px;font-weight:650;white-space:nowrap;transition:background .18s,border-color .18s,opacity .18s}
+.nav-history:hover:not(:disabled){background:rgba(0,229,255,.16);border-color:var(--ac);box-shadow:0 0 12px rgba(0,229,255,.12)}
+.nav-history:disabled{opacity:.32;cursor:not-allowed;filter:grayscale(1)}
+.nav-history:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+@media(max-width:760px){.bar{gap:6px}.nav-history{padding:6px 8px;font-size:10px}}
+@media(max-width:480px){.nav-history{padding:5px 6px;font-size:9px}.brand{margin-right:2px}}
