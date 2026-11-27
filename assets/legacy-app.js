@@ -174,9 +174,42 @@ addEventListener("error",e=>{log("error JS",false,String(e.message))});addEventL
 function loadEco(){}
 function openMenu(o){}
 function closeMenu(){}
-function go(id){closeMenu();go0(id);scrollTo(0,0)}
+/* Navegación interna tipo navegador: historial de vistas del ecosistema. */
+const appNavEntries=[{section:"home",analysis:null}];
+let appNavIndex=0,appNavApplying=false;
+function appNavCurrentSection(){return document.querySelector("main section.on")?.id||"home"}
+function appNavApply(entry){
+  if(!entry)return;
+  appNavApplying=true;
+  if(appNavCurrentSection()!==entry.section)go0(entry.section);
+  if(entry.section==="analysis"&&entry.analysis&&globalThis.DataAnalyzerUI?.restore)globalThis.DataAnalyzerUI.restore(entry.analysis);
+  appNavApplying=false;
+  scrollTo(0,0);appNavRefresh();
+}
+function appNavRefresh(){
+  const back=document.getElementById("navBack"),forward=document.getElementById("navForward");
+  if(back){back.disabled=appNavIndex<=0;back.setAttribute("aria-disabled",String(back.disabled))}
+  if(forward){forward.disabled=appNavIndex>=appNavEntries.length-1;forward.setAttribute("aria-disabled",String(forward.disabled))}
+}
+function appNavPush(section,analysis=null){
+  if(appNavApplying)return;
+  appNavEntries.splice(appNavIndex+1);
+  appNavEntries.push({section,analysis:analysis?{...analysis}:null});
+  appNavIndex=appNavEntries.length-1;appNavRefresh();
+}
+globalThis.AppNavigation=Object.freeze({
+  navigate(section){appNavPush(section);closeMenu();go0(section);scrollTo(0,0);appNavRefresh()},
+  pushAnalysis(state){appNavPush("analysis",state)},
+  back(){if(appNavIndex>0){appNavIndex--;appNavApply(appNavEntries[appNavIndex])}},
+  forward(){if(appNavIndex<appNavEntries.length-1){appNavIndex++;appNavApply(appNavEntries[appNavIndex])}},
+  canBack(){return appNavIndex>0},
+  canForward(){return appNavIndex<appNavEntries.length-1},
+  refresh:appNavRefresh
+});
+function go(id){globalThis.AppNavigation.navigate(id)}
+
 
 addEventListener("keydown",e=>{if(e.key=="Escape")closeMenu()});
 $("enter").onclick=()=>{$("welcome").classList.add("out");log("entrar",true,"espacio de trabajo")};
 document.querySelector(".hero").addEventListener("pointermove",e=>{const r=e.currentTarget.getBoundingClientRect(),h=e.currentTarget;h.style.setProperty("--mx",((e.clientX-r.left)/r.width-.5)*2);h.style.setProperty("--my",((e.clientY-r.top)/r.height-.5)*2)});
-go0("home");
+go0("home");appNavRefresh();
