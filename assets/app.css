@@ -114,3 +114,15 @@ main{margin-left:220px!important;max-width:none!important;padding:84px 28px 48px
 .nr-log{max-height:300px;overflow:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:8px}.nr-msg{border-radius:10px;padding:8px 12px;max-width:85%;white-space:pre-wrap}.nr-msg small{display:block;color:var(--mu);font:11px var(--fm)}
 .nr-msg.user{align-self:flex-end;background:rgba(0,229,255,.12);border:1px solid rgba(0,229,255,.3)}.nr-msg.assistant{align-self:flex-start;background:rgba(255,210,122,.08);border:1px dashed rgba(255,210,122,.5)}
 .nr-ctx pre{max-height:240px}
+
+/* Navegación por vistas: catálogo separado del espacio de trabajo y retorno global. */
+.back-analyzer{flex:0 0 auto;background:rgba(0,229,255,.08);color:var(--ac);border:1px solid rgba(0,229,255,.38);padding:7px 12px;font-size:12px;white-space:nowrap}
+.back-analyzer:hover{background:rgba(0,229,255,.16);box-shadow:0 0 14px rgba(0,229,255,.16)}
+.nr-workspace{max-width:100%;min-width:0}
+.nr-workspace-heading{padding:14px 16px;margin:4px 0 14px;border:1px solid rgba(0,229,255,.22);border-radius:12px;background:linear-gradient(110deg,rgba(0,229,255,.07),rgba(123,97,255,.06))}
+.nr-workspace-heading h3{margin:2px 0 4px;font-size:clamp(19px,2.5vw,25px);color:#fff}
+.nr-workspace-heading p{margin:3px 0}
+.nr-kicker{font:10px var(--fm);letter-spacing:1.5px;color:var(--ac)!important}
+.nr-workspace-source{min-width:0}
+.nr-workspace .nr-panel{margin-top:18px}
+@media(max-width:560px){.back-analyzer{font-size:10px;padding:6px 8px}.bar{gap:7px}.nr-workspace-heading{padding:12px}}
