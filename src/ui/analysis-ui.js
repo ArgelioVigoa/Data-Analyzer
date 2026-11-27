@@ -15,7 +15,7 @@ function navigateView(view, chart=ui.chart) {
   globalThis.AppNavigation?.pushAnalysis?.({view:ui.view,chart:ui.chart,source:ui.source});
   render();
 }
-const back = (to, label) => el("button", { class: "g nr-back", onclick: () => navigateView(to) }, `← ${label}`);
+const back = (to, label) => el("button", { class: "g nr-back", onclick: () => { if (!globalThis.AppNavigation?.back?.()) navigateView(to); } }, `← ${label}`);
 
 function viewEntry() {
   return el("div", { class: "nr-entry" },
