@@ -21,16 +21,36 @@ function viewEntry() {
 }
 
 function viewManual() {
-  const wrap = el("div", { class: "nr-manual" }, back("entry", "Modos de análisis"), el("h3", { text: "Catálogo de gráficos" }),
+  const wrap = el("div", { class: "nr-manual" }, back("entry", "Modos de análisis"),
+    el("h3", { text: "Catálogo de gráficos" }),
+    el("p", { class: "mu", text: "Seleccione un tipo de gráfico. Su espacio de trabajo se abrirá en una vista independiente para mantener la página despejada." }),
     el("div", { class: "nr-catalog", role: "list" }, ...CHART_CATALOG.map(c => {
-      const ok = isAvailable(c.id), sel = ui.chart === c.id;
-      return el("button", { role: "listitem", class: `chart-card${ok ? "" : " locked"}${sel ? " sel" : ""}`, "data-chart": c.id, disabled: !ok, "aria-disabled": String(!ok), title: ok ? "Disponible" : "Bloqueado: se habilitará en una etapa posterior", onclick: ok ? () => { ui.chart = c.id; render(); } : undefined },
-        el("span", { class: "cc-n", text: c.n }), el("span", { class: "cc-t", text: c.title }), el("span", { class: ok ? "bd b1" : "bd b3", text: ok ? "Disponible" : "🔒 Bloqueado" })); })));
-  if (ui.chart !== "neutron-edep") { wrap.append(el("p", { class: "mu", text: "Seleccione el gráfico 6 para comenzar. Los gráficos 1–5 están registrados pero bloqueados." })); return wrap; }
+      const ok = isAvailable(c.id);
+      return el("button", { role: "listitem", class: `chart-card${ok ? "" : " locked"}`, "data-chart": c.id, disabled: !ok, "aria-disabled": String(!ok), title: ok ? "Abrir espacio de trabajo" : "Bloqueado: se habilitará en una etapa posterior", onclick: ok ? () => { ui.chart = c.id; ui.view = "workspace"; render(); } : undefined },
+        el("span", { class: "cc-n", text: c.n }), el("span", { class: "cc-t", text: c.title }), el("span", { class: ok ? "bd b1" : "bd b3", text: ok ? "Disponible · abrir" : "🔒 Bloqueado" }));
+    })));
+  return wrap;
+}
+
+function viewWorkspace() {
+  const chart = CHART_CATALOG.find(c => c.id === ui.chart);
+  const wrap = el("div", { class: "nr-workspace" },
+    back("manual", "Catálogo de gráficos"),
+    el("div", { class: "nr-workspace-heading" },
+      el("div", {},
+        el("p", { class: "mu nr-kicker", text: "ESPACIO DE TRABAJO · ANÁLISIS MANUAL" }),
+        el("h3", { text: chart?.title || "Análisis del gráfico" }),
+        el("p", { class: "mu", text: "Configure la fuente de datos y ejecute el análisis en este espacio independiente." }))));
+  if (ui.chart !== "neutron-edep" || !chart) {
+    wrap.append(el("p", { class: "mu", text: "Este gráfico todavía no está disponible." }));
+    return wrap;
+  }
   const tabs = el("div", { class: "tabs", role: "tablist" }, ...[["geant4", "A · Archivo GEANT4"], ["demo", "B · Simulación demostrativa"], ["manual", "C · Tabla manual"]].map(([k, t]) => el("button", { role: "tab", class: ui.source === k ? "on" : "", "aria-selected": String(ui.source === k), "data-source": k, onclick: () => { ui.source = k; render(); } }, t)));
-  const src = el("div", {}); wrap.append(el("h3", { text: "Energía depositada por neutrones" }), tabs, src);
+  const src = el("div", { class: "nr-workspace-source" });
+  wrap.append(tabs, src);
   if (ui.source === "geant4") mountGeant4Loader(src); else if (ui.source === "demo") mountDemoPanel(src); else mountManualTable(src);
-  ui.panel = mountResultPanel(wrap); return wrap;
+  ui.panel = mountResultPanel(wrap);
+  return wrap;
 }
 
 function viewAI() {
@@ -52,5 +72,5 @@ function viewAI() {
   wrap.append(el("h3", { text: "3 · Contexto científico preparado" }), ctxBox, el("h3", { text: "4 · Conversación (solo prueba de arquitectura)" }), chat); paintCtx(); paintLog(); paintList(); return wrap;
 }
 
-function render() { if (!root) return; ui.panel?.destroy?.(); ui.panel = null; clear(root); root.append(ui.view === "manual" ? viewManual() : ui.view === "ai" ? viewAI() : viewEntry()); }
+function render() { if (!root) return; ui.panel?.destroy?.(); ui.panel = null; clear(root); root.append(ui.view === "manual" ? viewManual() : ui.view === "workspace" ? viewWorkspace() : ui.view === "ai" ? viewAI() : viewEntry()); }
 export const DataAnalyzerUI = { show() { root = document.getElementById("analysisRoot"); ui.view = "entry"; render(); }, _state: ui };
