@@ -10,14 +10,19 @@ import { MOCK_BANNER } from "../ai-core/providers/mock-provider.js";
 const ui = { view: "entry", chart: null, source: "geant4", panel: null, ai: AICore.withMock() };
 let root = null;
 
-const back = (to, label) => el("button", { class: "g nr-back", onclick: () => { ui.view = to; ui.panel?.destroy?.(); ui.panel = null; render(); } }, `← ${label}`);
+function navigateView(view, chart=ui.chart) {
+  ui.view=view;ui.chart=chart;ui.panel?.destroy?.();ui.panel=null;
+  globalThis.AppNavigation?.pushAnalysis?.({view:ui.view,chart:ui.chart,source:ui.source});
+  render();
+}
+const back = (to, label) => el("button", { class: "g nr-back", onclick: () => navigateView(to) }, `← ${label}`);
 
 function viewEntry() {
   return el("div", { class: "nr-entry" },
     el("p", { class: "mu", text: "Elija cómo quiere trabajar. Ambos flujos usan los mismos datos, el mismo motor de gráficos y las mismas estadísticas." }),
     el("div", { class: "nr-modes" },
-      el("button", { class: "mode-card manual", id: "modeManual", onclick: () => { ui.view = "manual"; render(); } }, el("span", { class: "mc-ic", "aria-hidden": "true", text: "📈" }), el("h3", { text: "Analizar Manualmente" }), el("p", { text: "Elija un gráfico del catálogo, aporte sus datos (archivo GEANT4, simulación demostrativa o tabla editable) y configure los indicadores estadísticos." }), el("span", { class: "bd b1", text: "Disponible · no requiere IA ni cuenta" })),
-      el("button", { class: "mode-card ai", id: "modeAI", onclick: () => { ui.view = "ai"; render(); } }, el("span", { class: "mc-ic", "aria-hidden": "true", text: "🧠" }), el("h3", { text: "Analizar con asistencia de IA" }), el("p", { text: "Sección del futuro agente científico: carga de archivo, contexto científico y conversaciones. La entrevista y el proveedor de IA aún no están implementados." }), el("span", { class: "bd b2", text: "Estructura preparada · IA no conectada" }))));
+      el("button", { class: "mode-card manual", id: "modeManual", onclick: () => navigateView("manual") }, el("span", { class: "mc-ic", "aria-hidden": "true", text: "📈" }), el("h3", { text: "Analizar Manualmente" }), el("p", { text: "Elija un gráfico del catálogo, aporte sus datos (archivo GEANT4, simulación demostrativa o tabla editable) y configure los indicadores estadísticos." }), el("span", { class: "bd b1", text: "Disponible · no requiere IA ni cuenta" })),
+      el("button", { class: "mode-card ai", id: "modeAI", onclick: () => navigateView("ai") }, el("span", { class: "mc-ic", "aria-hidden": "true", text: "🧠" }), el("h3", { text: "Analizar con asistencia de IA" }), el("p", { text: "Sección del futuro agente científico: carga de archivo, contexto científico y conversaciones. La entrevista y el proveedor de IA aún no están implementados." }), el("span", { class: "bd b2", text: "Estructura preparada · IA no conectada" }))));
 }
 
 function viewManual() {
@@ -26,7 +31,7 @@ function viewManual() {
     el("p", { class: "mu", text: "Seleccione un tipo de gráfico. Su espacio de trabajo se abrirá en una vista independiente para mantener la página despejada." }),
     el("div", { class: "nr-catalog", role: "list" }, ...CHART_CATALOG.map(c => {
       const ok = isAvailable(c.id);
-      return el("button", { role: "listitem", class: `chart-card${ok ? "" : " locked"}`, "data-chart": c.id, disabled: !ok, "aria-disabled": String(!ok), title: ok ? "Abrir espacio de trabajo" : "Bloqueado: se habilitará en una etapa posterior", onclick: ok ? () => { ui.chart = c.id; ui.view = "workspace"; render(); } : undefined },
+      return el("button", { role: "listitem", class: `chart-card${ok ? "" : " locked"}`, "data-chart": c.id, disabled: !ok, "aria-disabled": String(!ok), title: ok ? "Abrir espacio de trabajo" : "Bloqueado: se habilitará en una etapa posterior", onclick: ok ? () => navigateView("workspace",c.id) : undefined },
         el("span", { class: "cc-n", text: c.n }), el("span", { class: "cc-t", text: c.title }), el("span", { class: ok ? "bd b1" : "bd b3", text: ok ? "Disponible · abrir" : "🔒 Bloqueado" }));
     })));
   return wrap;
@@ -73,4 +78,4 @@ function viewAI() {
 }
 
 function render() { if (!root) return; ui.panel?.destroy?.(); ui.panel = null; clear(root); root.append(ui.view === "manual" ? viewManual() : ui.view === "workspace" ? viewWorkspace() : ui.view === "ai" ? viewAI() : viewEntry()); }
-export const DataAnalyzerUI = { show() { root = document.getElementById("analysisRoot"); ui.view = "entry"; render(); }, _state: ui };
+export const DataAnalyzerUI = { show() { root = document.getElementById("analysisRoot"); ui.view = "entry"; ui.chart=null; ui.source="geant4"; render(); }, restore(state) { root=document.getElementById("analysisRoot"); if(!state)return; ui.view=state.view||"entry"; ui.chart=state.chart??null; ui.source=state.source||"geant4"; render(); }, _state: ui };
