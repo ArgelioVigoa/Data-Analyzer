@@ -1,0 +1,226 @@
+/* QuoLab — mapa de módulos (separables en archivos / FastAPI en fases futuras):
+   Store: persistencia versionada (localStorage) · Num/colInfo/toTable/parseCSV/detectSep/normCols: importación y tipado
+   desc/outl/freq/pearson/corrAll/polyfit: motor estadístico (puro, sin DOM) · plot/drawVar/tRl/runFit: visualización (Plotly CDN)
+   upload/loadFiles/dl/dlStats: gestión de archivos y exportación · loadProb/saveProb: problemas · ALGS: catálogo (informativo)
+   Fase 0: correcciones E1–E10 de la auditoría; sin funcionalidades nuevas. */
+const $=id=>document.getElementById(id),MAX=20*1024*1024;
+const IC={analysis:"🧭",files:"📂",dash:"📊",an:"🔬",prob:"🧪",alg:"⚛",be:"🔌",eco:"🌐",ex:"📤",set:"⚙"};
+const S=[["analysis","Seleccionar archivo para analizar"],["files","File Explorer"]];
+const KIND={csv:"tabular",tsv:"tabular",jsonl:"tabular",json:"estructurado",xml:"estructurado",yaml:"estructurado",yml:"estructurado"};
+const ALGS=[
+{id:"vqe",acronym:"VQE",name:"Variational Quantum Eigensolver",category:"Algoritmos variacionales e ingeniería cuántica",description:"Método híbrido cuántico-clásico que minimiza el valor esperado de un Hamiltoniano sobre un circuito parametrizado.",problems:["Energía del estado fundamental","Estimación de energías propias"],input:"Hamiltoniano y configuración del circuito variacional",output:"Estimación de energía y parámetros óptimos",req:"Ansatz, medición de valores esperados y optimizador clásico",deps:"Por definir",status:"Registrado"},
+{id:"qaoa",acronym:"QAOA",name:"Quantum Approximate Optimization Algorithm",category:"Optimización combinatoria",description:"Algoritmo variacional por capas que aproxima soluciones de problemas de optimización combinatoria.",problems:["Optimización combinatoria"],input:"Formulación del problema y función de coste",output:"Cadenas de bits candidatas y parámetros",req:"Circuito de profundidad p y optimizador clásico",deps:"Por definir",status:"Registrado"},
+{id:"qae",acronym:"QAE",name:"Estimación cuántica de amplitud",category:"Estimación de amplitud",description:"Estima la amplitud o probabilidad de un evento asociada a un procedimiento cuántico.",problems:["Estimación de probabilidades/amplitudes"],input:"Circuito que prepara el estado y operador del evento",output:"Estimación de amplitud con intervalo",req:"Oráculo del evento y estimación de amplitud",deps:"Por definir",status:"Registrado"}];
+const PSTATES=["Sin definir","Datos cargados","Datos inspeccionados","Modelo matemático pendiente","Modelo definido","Algoritmo candidato seleccionado","Pendiente de implementación"];
+let files=[],cur=null,hist=[],mem=[];
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function toast(m,ok=true){const t=$("toast");t.textContent=m;t.style.background=ok?"var(--ok)":"var(--er)";t.style.display="block";setTimeout(()=>t.style.display="none",4000)}
+function log(op,ok,d=""){hist.unshift({ts:Date.now(),op,ok,d});if(hist.length>200)hist.length=200;Store.set("history",hist.slice(0,50))}
+function loadP(){const v=Store.get("problems",null);if(v)return v;try{const l=JSON.parse(localStorage.getItem("quolab_problems")||"null");if(l)return l}catch{}return mem}
+function saveP(l){mem=l;if(!Store.set("problems",l))toast("Sin almacenamiento persistente: se guarda solo en memoria",false)}
+S.forEach(([id,n])=>{const a=document.createElement("a");a.innerHTML='<span class="ic">'+IC[id]+'</span>'+n;a.id="n"+id;a.onclick=()=>go(id);document.querySelector("nav").append(a)});
+function go0(id){document.querySelectorAll("section").forEach(s=>s.classList.toggle("on",s.id==id));S.forEach(([i])=>$("n"+i).classList.toggle("on",i==id));({analysis:()=>globalThis.DataAnalyzerUI&&DataAnalyzerUI.show(),dash,files:loadFiles,prob:loadProb,alg:loadAlg,be:loadBe,eco:loadEco,set:loadSet}[id]||(()=>{}))()}
+function dash(){const p=loadP();$("dashc").innerHTML=`<p>Archivos: <b>${files.length}</b> · Problemas: <b>${p.length}</b> · Algoritmos en catálogo: <b>${ALGS.length}</b> (ejecutables: <b>0</b>)</p><p>Backend: mock-integration-test (mock, no ejecuta)</p><p>Disponible: estadística, correlaciones, regresión y gráficos. Sin implementar: formulación matemática, compatibilidad cuántica, ejecución e integración con Quolab.</p><h4>Operaciones recientes</h4>`+(hist.length?"<table>"+hist.slice(0,8).map(h=>`<tr><td>${new Date(h.ts).toLocaleTimeString()}<td>${esc(h.op)}<td style="color:var(${h.ok?"--ok":"--er"})">${h.ok?"completada":"fallida"}<td>${esc(h.d)}</tr>`).join("")+"</table>":"<span class=mu>Sin operaciones.</span>")}
+async function upload(){const f=$("up").files[0];if(!f)return toast("Elige un archivo",false);const ext=(f.name.split(".").pop()||"").toLowerCase();
+if(f.size>MAX||!f.size){log("cargar",false,f.name);return toast(f.size?"Archivo demasiado grande (máx. 20 MB)":"Archivo vacío",false)}
+const buf=await f.arrayBuffer();let enc="utf-8",warns=[],text;const u=new Uint8Array(buf,0,Math.min(2,buf.byteLength)),u16=u[0]==255&&u[1]==254?"utf-16le":u[0]==254&&u[1]==255?"utf-16be":null;try{if(u16){enc=u16;text=new TextDecoder(u16).decode(buf)}else text=new TextDecoder("utf-8",{fatal:true}).decode(buf)}catch{enc="latin-1";text=new TextDecoder("latin1").decode(buf);warns.push("No es UTF-8 válido; se decodificó como latin-1")}
+text=text.replace(/^\uFEFF/,"");warns.push(...validate(ext,text));
+const e={id:Date.now(),name:f.name.replace(/[^\w.\- ]/g,"_"),ext,size:f.size,enc,text,buf,warns,kind:KIND[ext]||"texto"};
+try{if(e.kind=="tabular"||ext=="json")e.table=toTable(ext,text);if(e.table.ren.length)e.warns.push('Columnas renombradas: '+e.table.ren.join('; '))}catch(x){e.warns.push("No se pudo interpretar como tabla: "+x.message)}
+files.push(e);log("cargar",true,e.name);toast("Archivo cargado");loadFiles()}
+function validate(ext,t){try{if(ext=="json")JSON.parse(t);if(ext=="jsonl")t.split(/\r?\n/).filter(l=>l.trim()).forEach(l=>JSON.parse(l));
+if(ext=="xml"){if(/<!DOCTYPE|<!ENTITY/i.test(t))return["XML con DOCTYPE/ENTITY rechazado por seguridad"];const d=new DOMParser().parseFromString(t,"application/xml");if(d.querySelector("parsererror"))return["Error de formato XML"]}}catch(e){return["Error de formato "+ext.toUpperCase()+": "+e.message.slice(0,150)]}
+if(ext=="yaml"||ext=="yml")return["YAML: sin validación de sintaxis en esta versión HTML"];return[]}
+function parseCSV(t,sep){const rows=[];let r=[],c="",q=false;for(let i=0;i<t.length;i++){const ch=t[i];if(q){if(ch=='"'){if(t[i+1]=='"'){c+='"';i++}else q=false}else c+=ch}else if(ch=='"')q=true;else if(ch==sep){r.push(c);c=""}else if(ch=="\n"){r.push(c.replace(/\r$/,""));rows.push(r);r=[];c=""}else c+=ch}
+if(c.length||r.length){r.push(c.replace(/\r$/,""));rows.push(r)}return rows.filter(r=>r.length>1||r[0]!=="")}
+function toTable(ext,t){let cols,rows;
+if(ext=="csv"||ext=="tsv"){const sep=ext=="tsv"?"\t":(SEPSEL()||detectSep(t));const p=parseCSV(t,sep);cols=p[0];rows=p.slice(1).map(r=>cols.map((_,i)=>r[i]??""))}
+else{const objs=ext=="jsonl"?t.split(/\r?\n/).filter(l=>l.trim()).map(l=>JSON.parse(l)):(a=>Array.isArray(a)?a:[a])(JSON.parse(t));
+if(!objs.every(o=>o&&typeof o=="object"&&!Array.isArray(o)))throw new Error("el JSON no es una lista de objetos");cols=[...new Set(objs.flatMap(Object.keys))];rows=objs.map(o=>cols.map(c=>o[c]==null?"":typeof o[c]=="object"?JSON.stringify(o[c]):o[c]))}
+return normCols(cols,rows)}
+function loadFiles(){$("filel").innerHTML=files.length?"<table><tr><th>Nombre<th>Ext<th>Tamaño<th>Tipo<th>Acciones</tr>"+files.map(f=>`<tr><td>${esc(f.name)}<td>${f.ext}<td>${f.size} B<td>${f.kind}<td><button class=g onclick="open_(${f.id})">Analizar</button> <button class=g onclick="exp(${f.id})">Exportar</button></tr>`).join("")+"</table>":"<span class=mu>Sin archivos.</span>"}
+const F=id=>files.find(f=>f.id==id);
+function open_(id){cur=id;go("an");const f=F(id);$("anh").innerHTML=`<b>${esc(f.name)}</b> <span class=tag>${f.kind}</span> <span class=tag>${f.enc}</span>`+f.warns.map(w=>`<p style="color:var(--er)">⚠ ${esc(w)}</p>`).join("")+`<pre>${esc(f.text.slice(0,20000))}</pre>`;$("anp").innerHTML=$("ant").innerHTML="";if(f.table)analyzeUI(id)}
+function exp(id){cur=id;go("ex");const f=F(id);$("exl").innerHTML=`<b>${esc(f.name)}</b><p>`+[["original","Original (sin modificar)"],["csv","Tabla CSV (sin transformaciones)"],["json","Tabla JSON (sin transformaciones)"],["profile","Resultados del análisis JSON"],["html","Informe HTML"],["st_csv","Estadísticas CSV"],["st_json","Estadísticas JSON"],["st_corr","Pearson CSV"],["pdf","Informe PDF (no disponible)"]].map(([k,l])=>`<button class=g onclick="dl(${id},'${k}')">${l}</button> `).join("")+"</p>"}
+function save(b,name,mime){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([b],{type:mime}));a.download=name;a.click()}
+function dl(id,k){const f=F(id),base=f.name.replace(/\.[^.]+$/,"");if(k.startsWith("st_"))return dlStats(id,k);if(k=="pdf")return toast("Informe PDF aún no disponible",false);
+if(k=="original"){save(f.buf,f.name,"application/octet-stream");log("exportar",true,k);return toast("Exportado")}
+if(!f.table)return toast("Este archivo no tiene interpretación tabular: solo puedes exportar el original",false);const T=f.table;window.__nm=new Set(colInfo(T).filter(c=>c.numeric).map(c=>c.name));
+const csv=[T.cols,...T.rows].map(r=>r.map(v=>/[",\r\n;]/.test(v)?'"'+String(v).replace(/"/g,'""')+'"':v).join(",")).join("\n");
+if(k=="csv")save(csv,base+"_tabla.csv","text/csv");
+if(k=="json")save(JSON.stringify(T.rows.map(r=>Object.fromEntries(T.cols.map((c,i)=>[c,jv(r[i],c)]))),null,1),base+"_tabla.json","application/json");
+if(k=="profile")save(JSON.stringify(profile(T),null,2),base+"_resultados.json","application/json");
+if(k=="html")save(`<html><meta charset="utf-8"><body><h1>Informe: ${esc(f.name)}</h1><pre>${esc(JSON.stringify(profile(T),null,2))}</pre></body></html>`,base+"_informe.html","text/html");
+log("exportar",true,k);toast("Exportado")}
+const PF=["name","description","area","objective","math_info"];
+function loadProb(){editExtra=[];$("probf").innerHTML=PF.map(k=>`<label>${k}</label><input id="p_${k}">`).join("")+`<label>variables (coma)</label><input id="p_vars"><label>unidades (coma)</label><input id="p_units"><label>hipótesis / restricciones (coma)</label><input id="p_hyp"><label>archivos asociados</label><select id="p_files" multiple>${files.map(f=>`<option>${esc(f.name)}</option>`).join("")}</select><label>algoritmo candidato</label><select id="p_alg"><option value="">—</option>${ALGS.map(a=>`<option value="${a.id}">${a.acronym}</option>`).join("")}</select><label>estado</label><select id="p_st">${PSTATES.map(s=>`<option>${s}</option>`).join("")}</select><p><button onclick="saveProb()">Guardar problema</button></p>`;
+const l=loadP();$("probl").innerHTML=l.length?"<table><tr><th>Nombre<th>Estado<th>Algoritmo<th></tr>"+l.map((p,i)=>`<tr><td>${esc(p.name)}<td>${esc(p.status)}<td>${esc(p.alg||"—")}<td><button class=g onclick="editP(${i})">Editar</button> <button class=g onclick="dlP(${i})">Exportar JSON</button></tr>`).join("")+"</table><p class=mu>Guardado en el almacenamiento de este navegador.</p>":"<span class=mu>Sin problemas registrados.</span>"}
+function editP(i){const p=loadP()[i];PF.forEach(k=>$("p_"+k).value=p[k]||"");$("p_vars").value=p.vars||"";$("p_units").value=p.units||"";$("p_hyp").value=p.hyp||"";$("p_alg").value=p.alg||"";$("p_st").value=p.status;$("p_name").dataset.i=i;const op=[...$("p_files").options];op.forEach(o=>o.selected=(p.files||[]).includes(o.value));editExtra=(p.files||[]).filter(n=>!op.some(o=>o.value==n));scrollTo(0,0)}
+function saveProb(){const p={vars:$("p_vars").value,units:$("p_units").value,hyp:$("p_hyp").value,files:[...[...$("p_files").selectedOptions].map(o=>o.value),...editExtra],alg:$("p_alg").value,status:$("p_st").value,updated:Date.now()};PF.forEach(k=>p[k]=$("p_"+k).value);
+if(!p.name.trim())return toast("El nombre es obligatorio",false);const l=loadP(),i=$("p_name").dataset.i;i!==undefined?l[i]=p:l.unshift(p);saveP(l);log("problema",true,p.name);toast("Problema guardado");loadProb()}
+function dlP(i){save(JSON.stringify(loadP()[i],null,2),"problema.json","application/json")}
+function loadAlg(){$("algl").innerHTML="<table><tr><th>Algoritmo<th>Categoría<th>Estado<th>Ejecutable<th></tr>"+ALGS.map(a=>`<tr><td>${a.acronym} — ${esc(a.name)}<td>${esc(a.category)}<td><span class=tag>${a.status}</span><td>no<td><button class=g onclick="algd('${a.id}')">Ficha técnica</button></tr>`).join("")+"</table>"}
+function algd(id){const a=ALGS.find(x=>x.id==id),d=$("algd");d.style.display="block";d.innerHTML=`<h3>${a.acronym} <span class=tag>${a.status}</span></h3><p>${esc(a.description)}</p><p><b>Problemas:</b> ${a.problems.map(esc).join("; ")}</p><p><b>Entrada:</b> ${esc(a.input)}</p><p><b>Resultado:</b> ${esc(a.output)}</p><p><b>Requisitos:</b> ${esc(a.req)}</p><p><b>Dependencias previstas:</b> ${a.deps}</p><p><b>Backends:</b> prevista; sin backend conectado ni verificado</p>`}
+function loadBe(){$("bel").innerHTML=`<p><b>mock-integration-test</b> <span class=tag>MOCK</span> ejecuta circuitos: <b>no</b><br>Mock para pruebas de interfaz. No simula circuitos ni produce resultados.</p><p class=mu>La integración con QuoLab no está implementada: requiere inspeccionar su código/documentación.</p>`}
+function loadSet(){$("setc").textContent=JSON.stringify({version:"0.1-html-standalone",max_upload_mb:20,formats:["txt","md","log","py","js","html","css","sql","csv","tsv","json","jsonl","xml","yaml","yml"],no_soportado:["xlsx (requiere la versión con servidor)"],problem_states:PSTATES,qcol_integration:"no implementada"},null,2)}
+
+/* ===== QuoLab L1-4 (parcial): módulos Num, Stats, Corr, Fit, Viz, UI. Todo local. ===== */
+const PLOTLY_URL="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js";
+const Num={re:/^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/,rc:/^[+-]?\d+,\d+([eE][+-]?\d+)?$/,
+ parse(v){if(typeof v==="number")return isFinite(v)?v:NaN;const t=String(v??"").trim();if(t==="")return null;return Num.re.test(t)?Number(t):NaN},comma:v=>typeof v==="string"&&Num.rc.test(v.trim())};
+const avg=a=>a.reduce((x,y)=>x+y,0)/a.length;
+const fmt=x=>x==null?"n/d":(typeof x!="number"?x:(x!==0&&(Math.abs(x)>=1e6||Math.abs(x)<1e-4)?x.toExponential(6):String(+x.toPrecision(8))));
+function colInfo(T){return T.cols.map((c,j)=>{const raw=T.rows.map(r=>r[j]),num=raw.map(Num.parse),vals=[];let miss=0,bad=0,comma=0;
+ num.forEach((x,i)=>{if(x===null)miss++;else if(Number.isNaN(x)){bad++;if(Num.comma(raw[i]))comma++}else vals.push(x)});
+ const nn=raw.length-miss,numeric=nn>0&&vals.length/nn>=.8;return{name:c,j,raw,num,vals,miss,bad,comma,numeric,nn,warn:numeric&&bad?`${bad} valor(es) no numérico(s) excluido(s) del cálculo${comma?` (${comma} con coma decimal, NO convertidos)`:""}`:(!numeric&&comma?`${comma} valor(es) con coma decimal detectados; NO se convirtieron y la columna se trata como categórica`:"")}})}
+const q7=(s,p)=>{const h=(s.length-1)*p,l=Math.floor(h);return s[l]+(h-l)*((s[l+1]??s[l])-s[l])};
+function desc(v){const n=v.length;if(!n)return null;const s=[...v].sort((a,b)=>a-b),mean=avg(s);let m2=0,m3=0,m4=0;for(const x of s){const d=x-mean;m2+=d*d;m3+=d**3;m4+=d**4}
+ const vp=m2/n,vs=n>1?m2/(n-1):null,sdp=Math.sqrt(vp),sds=vs==null?null:Math.sqrt(vs),f=new Map();s.forEach(x=>f.set(x,(f.get(x)||0)+1));let mx=0;f.forEach(c=>mx=Math.max(mx,c));
+ const P={};[5,10,25,50,75,90,95].forEach(p=>P["P"+p]=q7(s,p/100));
+ return{n,mean,median:P.P50,mode:mx>1?[...f].filter(e=>e[1]==mx).map(e=>e[0]).slice(0,3).join("; "):null,gmean:s[0]>0?Math.exp(avg(s.map(Math.log))):null,min:s[0],max:s[n-1],range:s[n-1]-s[0],
+ varP:vp,varS:vs,sdP:sdp,sdS:sds,cv:mean!==0&&sds!=null?sds/Math.abs(mean):null,sem:sds==null?null:sds/Math.sqrt(n),Q1:P.P25,Q2:P.P50,Q3:P.P75,IQR:P.P75-P.P25,...P,
+ skew:sdp>0?m3/n/sdp**3:null,kurt:sdp>0?m4/n/vp**2:null,exkurt:sdp>0?m4/n/vp**2-3:null,sorted:s}}
+const STAT_ROWS=[["n","n válidas"],["mean","Media"],["median","Mediana"],["mode","Moda"],["gmean","Media geométrica"],["min","Mínimo"],["max","Máximo"],["range","Rango"],["varP","Varianza poblacional"],["varS","Varianza muestral"],["sdP","Desv. est. poblacional"],["sdS","Desv. est. muestral"],["cv","Coef. de variación"],["sem","Error estándar de la media"],["Q1","Q1"],["Q2","Q2"],["Q3","Q3"],["IQR","IQR"],["P5","P5"],["P10","P10"],["P90","P90"],["P95","P95"],["skew","Asimetría (g1)"],["kurt","Curtosis (g2+3)"],["exkurt","Exceso de curtosis"]];
+function outl(d,v){const lo=d.Q1-1.5*d.IQR,hi=d.Q3+1.5*d.IQR;return{lo,hi,iqr:v.filter(x=>x<lo||x>hi),z:d.sdS>0?v.filter(x=>Math.abs((x-d.mean)/d.sdS)>3):[]}}
+function freq(d,k){const s=d.sorted,a=s[0],b=s[d.n-1];if(a==b)return{a,w:0,counts:[d.n]};const w=(b-a)/k,c=Array(k).fill(0);s.forEach(x=>c[Math.min(k-1,Math.floor((x-a)/w))]++);return{a,w,counts:c}}
+const sturges=n=>Math.max(1,Math.ceil(Math.log2(n))+1);
+function rank(v){const ix=v.map((x,i)=>[x,i]).sort((a,b)=>a[0]-b[0]),r=Array(v.length);for(let i=0;i<ix.length;){let j=i;while(j+1<ix.length&&ix[j+1][0]==ix[i][0])j++;for(let k=i;k<=j;k++)r[ix[k][1]]=(i+j)/2+1;i=j+1}return r}
+function pearson(x,y){const n=x.length;if(n<2)return{r:null,cov:null,n};const mx=avg(x),my=avg(y);let a=0,b=0,c=0;for(let i=0;i<n;i++){a+=(x[i]-mx)*(y[i]-my);b+=(x[i]-mx)**2;c+=(y[i]-my)**2}return{r:b>0&&c>0?a/Math.sqrt(b*c):null,cov:a/(n-1),n}}
+function corrAll(cs){const k=cs.length,P=[],S=[],C=[],N=[];for(let i=0;i<k;i++){P.push([]);S.push([]);C.push([]);N.push([]);for(let j=0;j<k;j++){const x=[],y=[];cs[i].num.forEach((v,r)=>{const w=cs[j].num[r];if(v!==null&&w!==null&&!Number.isNaN(v)&&!Number.isNaN(w)){x.push(v);y.push(w)}});const p=pearson(x,y),sp=x.length>1?pearson(rank(x),rank(y)):{r:null};P[i].push(p.r);S[i].push(sp.r);C[i].push(p.cov);N[i].push(p.n)}}return{P,S,C,N}}
+function solve(A,b){const n=b.length;for(let i=0;i<n;i++){let p=i;for(let r=i+1;r<n;r++)if(Math.abs(A[r][i])>Math.abs(A[p][i]))p=r;[A[i],A[p]]=[A[p],A[i]];[b[i],b[p]]=[b[p],b[i]];if(Math.abs(A[i][i])<1e-14)return null;for(let r=i+1;r<n;r++){const f=A[r][i]/A[i][i];for(let c=i;c<n;c++)A[r][c]-=f*A[i][c];b[r]-=f*b[i]}}const x=Array(n);for(let i=n-1;i>=0;i--){let s=b[i];for(let c=i+1;c<n;c++)s-=A[i][c]*x[c];x[i]=s/A[i][i]}return x}
+function polyfit(x,y,deg){const n=x.length,mu=avg(x),sg=Math.sqrt(x.reduce((a,v)=>a+(v-mu)**2,0)/n)||1,z=x.map(v=>(v-mu)/sg),m=deg+1,A=[],b=[];
+ for(let i=0;i<m;i++){A.push([]);b.push(z.reduce((a,v,k)=>a+y[k]*v**i,0));for(let j=0;j<m;j++)A[i].push(z.reduce((a,v)=>a+v**(i+j),0))}
+ const c=solve(A,b);if(!c)return null;const f=v=>{const t=(v-mu)/sg;return c.reduce((a,cf,i)=>a+cf*t**i,0)},res=y.map((v,i)=>v-f(x[i])),ssr=res.reduce((a,r)=>a+r*r,0),my=avg(y),sst=y.reduce((a,v)=>a+(v-my)**2,0);
+ return{c,mu,sg,f,res,r2:sst>0?1-ssr/sst:null,rmse:Math.sqrt(ssr/n),mae:avg(res.map(Math.abs)),n,deg}}
+/* ---- Viz ---- */
+let plotlyP;function loadPlotly(){return plotlyP||(plotlyP=new Promise(r=>{if(window.Plotly)return r(true);const e=document.createElement("script");e.src=PLOTLY_URL;e.onload=()=>r(true);e.onerror=()=>{plotlyP=null;r(false)};document.head.append(e)}))}
+function plot(id,data,layout){const el=$(id);if(!el)return;data.forEach(t=>{if(t.type==='scatter'&&t.x&&t.x.length>5000&&!t.fill)t.type='scattergl'});if(!window.Plotly){el.innerHTML='<p class="mu wn">Gráficos no disponibles: no se pudo cargar Plotly (CDN, requiere conexión). Tablas y cálculos siguen disponibles.</p>';return}
+ Plotly.newPlot(el,data,{paper_bgcolor:"rgba(0,0,0,0)",plot_bgcolor:"rgba(255,255,255,.03)",font:{color:"#e0e0ff",size:11},margin:{t:36,l:55,r:14,b:46},...layout},{responsive:true,displaylogo:false,toImageButtonOptions:{format:"png"}})}
+/* ---- UI ---- */
+let AS={};
+function analyze(f){const info=colInfo(f.table),seen=new Set();let dup=0;f.table.rows.forEach(r=>{const k=JSON.stringify(r);seen.has(k)?dup++:seen.add(k)});
+ const d={},o={};info.filter(c=>c.numeric&&c.vals.length).forEach(c=>{d[c.name]=desc(c.vals);o[c.name]=outl(d[c.name],c.vals)});return{info,dup,d,o}}
+async function analyzeUI(id){const f=F(id);$("anp").innerHTML='<progress></progress><p class="mu">Procesando localmente…</p>';$("ant").innerHTML="";await new Promise(r=>setTimeout(r,30));
+ try{const A=analyze(f);AS={id,A,sel:new Set(A.info.map(c=>c.j)),tab:"ov",xs:"",bins:{}};loadPlotly();log("análisis estadístico",true,f.name);renderShell()}catch(e){$("anp").innerHTML=`<span style="color:var(--er)">${esc(e.message)}</span>`;log("análisis estadístico",false,e.message)}}
+const TABS=[["ov","Overview"],["ss","Statistical Summary"],["di","Distributions"],["rl","Variable Relationships"],["rg","Regression"],["dq","Data Quality"],["rw","Raw Data"]];
+function renderShell(){const A=AS.A;$("anp").innerHTML=`<details><summary>Columnas a analizar (${AS.sel.size}/${A.info.length})</summary>${A.info.map(c=>`<label style="display:inline-block;margin-right:12px"><input type="checkbox" style="width:auto" ${AS.sel.has(c.j)?"checked":""} onchange="togSel(this,${c.j})"> ${esc(c.name)} <span class="tag">${c.numeric?"numérica":"categórica"}</span></label>`).join("")}</details><div class="tabs">${TABS.map(([k,n])=>`<button class="${k==AS.tab?"on":""}" onclick="setTab('${k}')">${n}</button>`).join("")}</div><div id="tp"></div>`;drawTab()}
+function togSel(el,n){el.checked?AS.sel.add(n):AS.sel.delete(n);renderShell()}
+function setTab(k){AS.tab=k;renderShell()}
+const nums=()=>AS.A.info.filter(c=>c.numeric&&AS.sel.has(c.j)&&AS.A.d[c.name]),cats=()=>AS.A.info.filter(c=>!c.numeric&&AS.sel.has(c.j));
+function drawTab(){const t=$("tp");({ov:tOv,ss:tSs,di:tDi,rl:tRl,rg:tRg,dq:tDq,rw:tRw})[AS.tab](t)}
+function cards(d){return`<div class="cards">${[["n","n"],["mean","Media"],["median","Mediana"],["sdS","Desv. est. (muestral)"],["varS","Varianza (muestral)"],["min","Mínimo"],["max","Máximo"],["cv","Coef. variación"]].map(([k,n])=>`<div class="card"><small>${n}</small><b>${fmt(d[k])}</b></div>`).join("")}</div>`}
+function tOv(t){const A=AS.A,f=F(AS.id),ns=nums(),miss=A.info.reduce((a,c)=>a+c.miss,0);
+ t.innerHTML=`<p><b>${esc(f.name)}</b> · ${f.ext.toUpperCase()} · ${f.table.rows.length} filas × ${f.table.cols.length} columnas · ausentes: ${miss} · filas duplicadas: ${A.dup}</p><p>Numéricas: ${A.info.filter(c=>c.numeric).map(c=>esc(c.name)).join(", ")||"ninguna"} · Categóricas: ${A.info.filter(c=>!c.numeric).map(c=>esc(c.name)).join(", ")||"ninguna"}</p>`+A.info.filter(c=>c.warn).map(c=>`<p class="wn">⚠ ${esc(c.name)}: ${esc(c.warn)}</p>`).join("")+(ns.length?`<label>Variable</label><select id="ovs" onchange="$('ovc').innerHTML=cards(AS.A.d[this.value])">${ns.map(c=>`<option>${esc(c.name)}</option>`).join("")}</select><div id="ovc">${cards(A.d[ns[0].name])}</div>`:'<p class="mu">No hay columnas numéricas seleccionadas: no se generan estadísticas numéricas.</p>')+'<p class="mu">Los datos originales no se modifican. Estadística descriptiva ≠ interpretación física.</p>'}
+function tSs(t){const ns=nums();if(!ns.length)return t.innerHTML='<p class="mu">Sin columnas numéricas seleccionadas.</p>';
+ t.innerHTML=`<table><tr><th>Estadístico${ns.map(c=>`<th>${esc(c.name)}`).join("")}</tr>${STAT_ROWS.map(([k,n])=>`<tr><td>${n}${ns.map(c=>`<td class="num">${fmt(AS.A.d[c.name][k])}`).join("")}</tr>`).join("")}</table>
+<details><summary>Fórmulas y convenciones</summary><pre>Varianza poblacional σ²=Σ(x−x̄)²/n · muestral s²=Σ(x−x̄)²/(n−1) (n/d si n<2)
+EEM=s/√n · CV=s/|x̄| (n/d si x̄=0)
+Cuantiles/percentiles: interpolación lineal tipo 7 (valor en (n−1)p; igual a R type 7 y Excel PERCENTIL.INC)
+Asimetría g1=m3/m2^1.5 · Curtosis g2+3=m4/m2² (momentos poblacionales); exceso=curtosis−3
+Media geométrica: solo si todos los valores >0 · Moda: solo si algún valor se repite
+Atípicos IQR: fuera de [Q1−1.5·IQR, Q3+1.5·IQR] · Z: |x−x̄|/s>3 (muestral)
+Sumas en coma flotante IEEE-754 doble precisión.</pre></details>`}
+function tDi(t){const ns=nums(),xo=['<option value="">Índice de fila</option>',...AS.A.info.filter(c=>c.numeric).map(c=>`<option ${AS.xs==c.name?"selected":""}>${esc(c.name)}</option>`)].join("");
+ t.innerHTML=`<label>Eje X de los gráficos de secuencia (el orden de filas no se asume tiempo)</label><select onchange="AS.xs=this.value;drawTab()">${xo}</select>`+ns.map((c,i)=>`<details ${i==0?"open":""} ontoggle="if(this.open)drawVar('${i}')"><summary>${esc(c.name)} (n=${AS.A.d[c.name].n})</summary><div id="dv${i}"></div></details>`).join("")+cats().map(c=>{const m=new Map();c.raw.forEach(v=>{const k=String(v??"").trim();if(k)m.set(k,(m.get(k)||0)+1)});const n=c.nn;return`<details><summary>${esc(c.name)} (categórica)</summary><table><tr><th>Categoría<th>Frecuencia<th>%</tr>${[...m].sort((a,b)=>b[1]-a[1]).slice(0,100).map(([k,v])=>`<tr><td>${esc(k)}<td class="num">${v}<td class="num">${(100*v/n).toFixed(2)}</tr>`).join("")}</table></details>`}).join("")||"";
+ if(ns.length)drawVar("0");if(!ns.length&&!cats().length)t.innerHTML+='<p class="mu">Sin columnas seleccionadas.</p>'}
+async function drawVar(i){const c=nums()[+i];if(!c)return;const box=$("dv"+i);if(!box||box.dataset.ok&&box.dataset.x==AS.xs)return;box.dataset.ok=1;box.dataset.x=AS.xs;const d=AS.A.d[c.name],k=AS.bins[c.name]||sturges(d.n),fr=freq(d,k);
+ let cum=0;box.innerHTML=`<label>Intervalos (auto: Sturges = ${sturges(d.n)})</label><input type="number" min="1" max="200" value="${k}" style="width:100px" onchange=""><details><summary>Tabla de frecuencias</summary><table><tr><th>Intervalo<th>f abs<th>f rel<th>f acum</tr>${fr.counts.map((n,j)=>{cum+=n;const lo=fr.a+j*fr.w;return`<tr><td>[${fmt(lo)}, ${fmt(lo+fr.w)}${j==fr.counts.length-1?"]":")"}<td class="num">${n}<td class="num">${(n/d.n).toFixed(4)}<td class="num">${(cum/d.n).toFixed(4)}</tr>`}).join("")}</table></details><div class="g2"><div class="pl" id="h${i}"></div><div class="pl" id="b${i}"></div><div class="pl" id="e${i}"></div><div class="pl" id="k${i}"></div><div class="pl" id="s${i}"></div></div>`;
+ box.querySelector("input").setAttribute("onchange",`AS.bins[${JSON.stringify(c.name)}]=Math.max(1,Math.min(200,+this.value||1));this.closest('div[id^=dv]').dataset.ok='';drawVar(${i})`);
+ await loadPlotly();const ax=(x,y)=>({xaxis:{title:x,gridcolor:"#1f2a5a"},yaxis:{title:y,gridcolor:"#1f2a5a"}}),u=c.name;
+ plot("h"+i,[{type:"bar",x:fr.counts.map((_,j)=>fr.a+(j+.5)*fr.w),y:fr.counts,width:fr.w||1,marker:{color:"#00e5ff"}}],{title:"Histograma de "+u,...ax(u,"Frecuencia")});
+ plot("b"+i,[{type:"box",y:c.vals,name:u,boxpoints:"outliers",quartilemethod:"linear",marker:{color:"#7b61ff"}}],{title:"Boxplot (cuartiles tipo 7)",yaxis:{title:u,gridcolor:"#1f2a5a"}});
+ plot("e"+i,[{type:"scatter",mode:"lines",line:{shape:"hv",color:"#00e5ff"},x:d.sorted,y:d.sorted.map((_,j)=>(j+1)/d.n)}],{title:"ECDF",...ax(u,"F(x)")});
+ if(d.n>=10&&d.sdS>0){const h=0.9*Math.min(d.sdS,d.IQR/1.34||d.sdS)*d.n**-.2,xs=Array.from({length:120},(_,j)=>d.min-2*h+(d.range+4*h)*j/119);plot("k"+i,[{type:"scatter",mode:"lines",fill:"tozeroy",line:{color:"#7b61ff"},x:xs,y:xs.map(x=>d.sorted.reduce((a,v)=>a+Math.exp(-.5*((x-v)/h)**2),0)/(d.n*h*Math.sqrt(2*Math.PI)))}],{title:`Densidad (KDE gaussiano, h=${fmt(h)}, Silverman)`,...ax(u,"Densidad")})}else $("k"+i).innerHTML='<p class="mu">Densidad: requiere n≥10 y dispersión no nula.</p>';
+ const xc=AS.xs&&AS.A.info.find(q=>q.name==AS.xs),px=[],py=[];c.num.forEach((v,r)=>{if(v!==null&&!Number.isNaN(v)){const xv=xc?xc.num[r]:r+1;if(xv!==null&&!Number.isNaN(xv)){px.push(xv);py.push(v)}}});
+ plot("s"+i,[{type:"scatter",mode:"lines+markers",x:px,y:py,marker:{color:"#00e5ff",size:5}}],{title:"Secuencia de mediciones",...ax(AS.xs||"Índice de fila",u)})}
+function mtab(M,names){return`<table><tr><th>${names.map(n=>`<th>${esc(n)}`).join("")}</tr>${M.map((r,i)=>`<tr><td><b>${esc(names[i])}</b>${r.map(v=>`<td class="num">${fmt(v)}`).join("")}</tr>`).join("")}</table>`}
+function tRl(t){const ns=nums();if(ns.length<2)return t.innerHTML='<p class="mu">Se necesitan al menos 2 columnas numéricas seleccionadas.</p>';const C=corrAll(ns),nm=ns.map(c=>c.name),th=AS.th??0.7;
+ const sp=[];for(let i=0;i<nm.length;i++)for(let j=i+1;j<nm.length;j++)if(C.P[i][j]!=null&&Math.abs(C.P[i][j])>=th)sp.push(`${esc(nm[i])} – ${esc(nm[j])}: r=${fmt(C.P[i][j])}, ρ=${fmt(C.S[i][j])} (n=${C.N[i][j]})`);
+ t.innerHTML=`<p class="wn">⚠ Correlación no implica causalidad. Se usan observaciones completas por pareja.</p><label>Umbral de correlación fuerte |r| ≥</label><input type="number" step="0.05" min="0" max="1" value="${th}" style="width:100px" onchange="AS.th=+this.value;drawTab()"><p>${sp.length?sp.join("<br>"):"Sin pares sobre el umbral."}</p><div class="g2"><div class="pl" id="hm"></div><div class="pl" id="sm" style="grid-column:1/-1;min-height:420px"></div></div><details><summary>Pearson</summary>${mtab(C.P,nm)}</details><details><summary>Spearman (rangos promedio en empates)</summary>${mtab(C.S,nm)}</details><details><summary>Covarianza muestral</summary>${mtab(C.C,nm)}</details>`;AS.C=C;
+ loadPlotly().then(()=>{plot("hm",[{type:"heatmap",z:C.P,x:nm,y:nm,zmin:-1,zmax:1,colorscale:"RdBu",reversescale:true}],{title:"Correlación de Pearson"});if(ns.length<=8)plot("sm",[{type:"splom",dimensions:ns.map(c=>({label:c.name,values:c.num.map(v=>v===null||Number.isNaN(v)?null:v)})),marker:{size:4,color:"#00e5ff"},diagonal:{visible:false}}],{title:"Matriz de dispersión",dragmode:"select"});else $("sm").innerHTML='<p class="mu">Scatter matrix: se limita a 8 variables; reduce la selección.</p>'})}
+function tRg(t){const ns=AS.A.info.filter(c=>c.numeric);if(ns.length<2)return t.innerHTML='<p class="mu">Se necesitan al menos 2 columnas numéricas.</p>';const o=ns.map(c=>`<option>${esc(c.name)}</option>`).join("");
+ t.innerHTML=`<div class="g2"><div><label>X (independiente)</label><select id="rx">${o}</select></div><div><label>Y (dependiente)</label><select id="ry">${o}</select></div></div><label>Grado del polinomio (1 = lineal)</label><input id="rd" type="number" min="1" max="10" value="1" style="width:100px"> <button onclick="runFit()">Ajustar (mínimos cuadrados)</button><div id="rr"></div>`;$("ry").selectedIndex=1}
+async function runFit(){const A=AS.A.info,cx=A.find(c=>c.name==$("rx").value),cy=A.find(c=>c.name==$("ry").value),deg=Math.max(1,Math.min(10,+$("rd").value|0)),x=[],y=[];
+ cx.num.forEach((v,i)=>{const w=cy.num[i];if(v!==null&&w!==null&&!Number.isNaN(v)&&!Number.isNaN(w)){x.push(v);y.push(w)}});const r=$("rr");
+ if(cx==cy)return r.innerHTML='<p class="wn">X e Y son la misma columna.</p>';if(x.length<=deg)return r.innerHTML=`<p class="wn">Datos insuficientes: n=${x.length} ≤ grado ${deg}.</p>`;
+ const F_=polyfit(x,y,deg);if(!F_)return r.innerHTML='<p class="wn">Sistema singular: no se pudo ajustar (p. ej. X sin variación).</p>';
+ const w=[];if(x.length<=deg+1)w.push("n ≤ parámetros: ajuste exacto o sobreparametrizado; R² no es informativo.");else if(x.length<5*(deg+1))w.push("Pocas observaciones por parámetro (<5): riesgo de sobreajuste.");
+ let ce;if(deg==1){const b=F_.c[1]/F_.sg;ce=`y = ${fmt(F_.c[0]-b*F_.mu)} + ${fmt(b)}·x`}else ce=`y = Σ c_k·t^k con t=(x−${fmt(F_.mu)})/${fmt(F_.sg)}; c=[${F_.c.map(fmt).join(", ")}]`;
+ r.innerHTML=`<p>${ce}</p><div class="cards">${[["n",x.length],["R²",F_.r2],["RMSE",F_.rmse],["MAE",F_.mae]].map(([k,v])=>`<div class="card"><small>${k}</small><b>${fmt(v)}</b></div>`).join("")}</div>${w.map(m=>`<p class="wn">⚠ ${m}</p>`).join("")}<p class="mu">Sin incertidumbres: ajuste no ponderado. R² describe el ajuste, no la validez del modelo físico.</p><div class="g2"><div class="pl" id="fp"></div><div class="pl" id="fr"></div></div>`;
+ await loadPlotly();const xs=Array.from({length:200},(_,i)=>mn(x)+(mx(x)-mn(x))*i/199);
+ plot("fp",[{type:"scatter",mode:"markers",x,y,name:"datos",marker:{color:"#00e5ff"}},{type:"scatter",mode:"lines",x:xs,y:xs.map(F_.f),name:`ajuste grado ${deg}`,line:{color:"#ff9f43"}}],{title:"Datos y ajuste",xaxis:{title:cx.name},yaxis:{title:cy.name}});
+ plot("fr",[{type:"scatter",mode:"markers",x,y:F_.res,marker:{color:"#7b61ff"}}],{title:"Residuos (y − ŷ)",xaxis:{title:cx.name},yaxis:{title:"residuo"},shapes:[{type:"line",x0:mn(x),x1:mx(x),y0:0,y1:0,line:{color:"#888",dash:"dot"}}]});log("regresión",true,`grado ${deg}`)}
+function tDq(t){const A=AS.A,n=F(AS.id).table.rows.length;t.innerHTML=`<p>Filas duplicadas exactas: <b>${A.dup}</b>. Los valores atípicos <b>no se eliminan</b>: son anomalías estadísticas, no errores experimentales demostrados.</p><table><tr><th>Columna<th>Válidas<th>% válidas<th>Ausentes<th>% aus.<th>No numéricos<th>Atípicos IQR<th>Límites IQR<th>Atípicos |Z|>3</tr>${A.info.map(c=>{const o=A.o[c.name];return`<tr><td>${esc(c.name)}<td class="num">${c.numeric?c.vals.length:c.nn}<td class="num">${(100*(c.numeric?c.vals.length:c.nn)/n).toFixed(1)}<td class="num">${c.miss}<td class="num">${(100*c.miss/n).toFixed(1)}<td class="num">${c.numeric?c.bad:"—"}<td class="num">${o?o.iqr.length:"—"}<td class="num">${o?`[${fmt(o.lo)}, ${fmt(o.hi)}]`:"—"}<td class="num">${o?(A.d[c.name].sdS>0?o.z.length:"n/d"):"—"}</tr>`}).join("")}</table>`}
+function tRw(t){const f=F(AS.id).table,q=AS.rq||"",s=AS.rs;let idx=f.rows.map((_,i)=>i);if(q)idx=idx.filter(i=>f.rows[i].some(v=>String(v).toLowerCase().includes(q.toLowerCase())));if(s!=null){const c=AS.A.info[s.j];idx.sort((a,b)=>{const x=c.numeric?c.num[a]:String(f.rows[a][s.j]),y=c.numeric?c.num[b]:String(f.rows[b][s.j]);return(x>y?1:x<y?-1:0)*s.d})}
+ t.innerHTML=`<input placeholder="Filtrar texto" value="${esc(q)}" onchange="AS.rq=this.value;drawTab()" style="width:260px"><p class="mu">${idx.length} filas (se muestran ≤200). Pulsa una cabecera para ordenar. Valores tal como se leyeron.</p><table><tr>${f.cols.map((c,j)=>`<th style="cursor:pointer" onclick="AS.rs={j:${j},d:AS.rs&&AS.rs.j==${j}?-AS.rs.d:1};drawTab()">${esc(c)}`).join("")}</tr>${idx.slice(0,200).map(i=>`<tr>${f.rows[i].map(v=>`<td>${esc(v)}`).join("")}</tr>`).join("")}</table>`}
+function dlStats(id,k){const A=AS.id==id?AS.A:analyze(F(id)),ns=A.info.filter(c=>c.numeric&&A.d[c.name]),base=F(id).name.replace(/\.[^.]+$/,"");if(!ns.length)return toast("Sin columnas numéricas para exportar",false);
+ if(k=="st_csv")save(["estadístico,"+ns.map(c=>JSON.stringify(c.name)).join(","),...STAT_ROWS.map(([key,n])=>n+","+ns.map(c=>A.d[c.name][key]??"").join(","))].join("\n"),base+"_estadisticas.csv","text/csv");
+ if(k=="st_json")save(JSON.stringify(Object.fromEntries(ns.map(c=>[c.name,Object.fromEntries(STAT_ROWS.map(([key])=>[key,A.d[c.name][key]]))])),null,2),base+"_estadisticas.json","application/json");
+ if(k=="st_corr"){if(ns.length<2)return toast("Se necesitan ≥2 columnas numéricas",false);const C=corrAll(ns);save(["var,"+ns.map(c=>JSON.stringify(c.name)).join(","),...C.P.map((r,i)=>JSON.stringify(ns[i].name)+","+r.join(","))].join("\n"),base+"_pearson.csv","text/csv")}
+ log("exportar",true,k);toast("Exportado")}
+
+/* ===== Fase 0: utilidades de arquitectura y correcciones ===== */
+const Store={ns:"quolab.v1.",get(k,d){try{const v=localStorage.getItem(this.ns+k);return v==null?d:JSON.parse(v)}catch{return d}},set(k,v){try{localStorage.setItem(this.ns+k,JSON.stringify(v));return true}catch{return false}}};
+hist=Store.get("history",[]);let editExtra=[];
+const mn=a=>{let m=Infinity;for(const v of a)if(v<m)m=v;return m},mx=a=>{let m=-Infinity;for(const v of a)if(v>m)m=v;return m};
+const SEPSEL=()=>{const v=$("sepsel")?$("sepsel").value:"";return v=="tab"?"\t":v};
+function detectSep(t){const smp=t.slice(0,30000);let best=",",bs=0;for(const sp of [",",";","\t","|"]){let r=parseCSV(smp,sp);if(smp.length==30000&&r.length>1)r.pop();r=r.slice(0,20);const ct=r.map(x=>x.length),m=new Map();ct.forEach(c=>m.set(c,(m.get(c)||0)+1));let mc=0,mf=0;m.forEach((f,c)=>{if(f>mf||(f==mf&&c>mc)){mf=f;mc=c}});const sc=mc>1?(mf/ct.length)*1000+mc:0;if(sc>bs){bs=sc;best=sp}}return best}
+function normCols(cols,rows){const seen=new Map(),ren=[];const out=cols.map((c,i)=>{let n=String(c??"").trim();if(!n){n="columna_"+(i+1);ren.push(`columna ${i+1} sin nombre → ${n}`)}if(seen.has(n)){const k=seen.get(n)+1;seen.set(n,k);const m=n+"_"+k;ren.push(`${n} (duplicada) → ${m}`);return m}seen.set(n,1);return n});return{cols:out,rows,ren}}
+const jv=(v,c)=>{if(window.__nm&&window.__nm.has(c)&&typeof v=="string"){const x=Num.parse(v);if(x!==null&&!Number.isNaN(x))return x}return v};
+function profile(T){const info=colInfo(T),seen=new Set();let dup=0;T.rows.forEach(r=>{const k=JSON.stringify(r);seen.has(k)?dup++:seen.add(k)});
+ const o={rows:T.rows.length,columns:T.cols.length,dtypes:{},missing:{},non_numeric:{},duplicate_rows:dup,potential_outliers_iqr:{},stats:{},conventions:"cuantiles tipo 7; desviación muestral (n-1); atípicos IQR 1.5; columna numérica si ≥80 % de los valores no vacíos son numéricos"};
+ info.forEach(c=>{o.dtypes[c.name]=c.numeric?"numérico":"texto";if(c.miss)o.missing[c.name]=c.miss;if(c.numeric&&c.bad)o.non_numeric[c.name]=c.bad;if(c.numeric&&c.vals.length){const d=desc(c.vals),q=outl(d,c.vals);if(q.iqr.length)o.potential_outliers_iqr[c.name]=q.iqr.length;o.stats[c.name]={count:d.n,mean:d.mean,std_sample:d.sdS,min:d.min,Q1:d.Q1,median:d.median,Q3:d.Q3,max:d.max}}});return o}
+addEventListener("error",e=>{log("error JS",false,String(e.message))});addEventListener("unhandledrejection",e=>{log("promesa rechazada",false,String(e.reason))});
+function loadEco(){}
+function openMenu(o){}
+function closeMenu(){}
+/* Historial de navegación por checkpoints: cada pantalla visitada queda guardada.
+   Retroceder no crea una entrada nueva; avanzar recupera exactamente el recorrido.
+   Al navegar desde un punto anterior se descarta solo la rama futura, como en Word. */
+const appNavEntries=[{section:"home",analysis:null}];
+let appNavIndex=0,appNavApplying=false;
+function appNavApply(entry){
+  if(!entry)return false;
+  appNavApplying=true;
+  try{
+    const current=document.querySelector("main section.on")?.id||"home";
+    if(current!==entry.section)go0(entry.section);
+    if(entry.section==="analysis"&&entry.analysis&&globalThis.DataAnalyzerUI?.restore)globalThis.DataAnalyzerUI.restore({...entry.analysis});
+    scrollTo(0,0);
+  }finally{appNavApplying=false;appNavRefresh()}
+  return true;
+}
+function appNavRefresh(){
+  const back=document.getElementById("navBack"),forward=document.getElementById("navForward");
+  if(back){back.disabled=appNavIndex===0;back.setAttribute("aria-disabled",String(back.disabled))}
+  if(forward){forward.disabled=appNavIndex===appNavEntries.length-1;forward.setAttribute("aria-disabled",String(forward.disabled))}
+}
+function appNavPush(section,analysis=null){
+  if(appNavApplying)return false;
+  /* Word-like branching: a new action after undo removes the abandoned redo path. */
+  appNavEntries.splice(appNavIndex+1);
+  appNavEntries.push({section,analysis:analysis?{...analysis}:null});
+  appNavIndex=appNavEntries.length-1;
+  appNavRefresh();
+  return true;
+}
+globalThis.AppNavigation=Object.freeze({
+  navigate(section){
+    appNavPush(section,section==="analysis"?{view:"entry",chart:null,source:"geant4"}:null);
+    closeMenu();go0(section);scrollTo(0,0);appNavRefresh();
+  },
+  pushAnalysis(state){return appNavPush("analysis",state)},
+  back(){if(appNavIndex===0)return false;appNavIndex--;return appNavApply(appNavEntries[appNavIndex])},
+  forward(){if(appNavIndex>=appNavEntries.length-1)return false;appNavIndex++;return appNavApply(appNavEntries[appNavIndex])},
+  canBack(){return appNavIndex>0},
+  canForward(){return appNavIndex<appNavEntries.length-1},
+  getPosition(){return {current:appNavIndex+1,total:appNavEntries.length}},
+  refresh:appNavRefresh
+});
+function go(id){globalThis.AppNavigation.navigate(id)}
+
+
+addEventListener("keydown",e=>{if(e.key=="Escape")closeMenu();if(e.altKey&&e.key==="ArrowLeft"){e.preventDefault();globalThis.AppNavigation?.back?.()}if(e.altKey&&e.key==="ArrowRight"){e.preventDefault();globalThis.AppNavigation?.forward?.()}});
+$("enter").onclick=()=>{$("welcome").classList.add("out");log("entrar",true,"espacio de trabajo")};
+document.querySelector(".hero").addEventListener("pointermove",e=>{const r=e.currentTarget.getBoundingClientRect(),h=e.currentTarget;h.style.setProperty("--mx",((e.clientX-r.left)/r.width-.5)*2);h.style.setProperty("--my",((e.clientY-r.top)/r.height-.5)*2)});
+go0("home");appNavRefresh();
